@@ -2,13 +2,13 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Fuerza de Origen Magnético sobre Conductores</title>
+    <title>MagnetoSim 3D - UNAM Final Pro</title>
     <style>
         body { margin: 0; background: #0f172a; overflow: hidden; font-family: 'Segoe UI', sans-serif; color: white; touch-action: none; }
         #ui { 
             position: absolute; top: 20px; left: 20px; z-index: 100; 
             background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(10px); 
-            padding: 20px; border-radius: 15px; width: 280px; 
+            padding: 20px; border-radius: 15px; width: 340px; 
             border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.3);
             max-height: 85vh; overflow-y: auto;
         }
@@ -21,37 +21,34 @@
             border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; 
         }
         button:hover { background: #d9f99d; transform: translateY(-1px); }
-        .val { float: right; color: #facc15; font-family: monospace; }
-        #data-panel { margin-top: 15px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; font-family: 'Courier New', monospace; border: 1px solid rgba(255,255,255,0.05); }
+        .val { float: right; color: #facc15; font-family: monospace; text-transform: none; }
+        #data-panel { 
+            margin-top: 15px; background: #0f172a; padding: 10px; border-radius: 8px; 
+            border: 2px solid #334155; text-align: center; 
+        }
+        .panel-title { font-size: 0.7em; color: #a3e635; margin-bottom: 5px; text-transform: uppercase; }
+        .panel-value { font-size: 1.8em; color: #4ade80; font-family: 'Courier New', monospace; font-weight: bold; }
+        
+        #watermark {
+            position: absolute; bottom: 20px; right: 20px; z-index: 100;
+            text-align: right; color: #a3e635; font-size: 0.85em; font-weight: 300; 
+            letter-spacing: 1px; pointer-events: none; opacity: 0.9;
+        }
 
-        /* Ajustes para celulares en vertical (Portrait) */
         @media (max-width: 600px) and (orientation: portrait) {
-            #ui {
-                width: 85%;
-                max-width: 320px;
-                left: 50%;
-                transform: translateX(-50%);
-                padding: 15px;
-            }
+            #ui { width: 90%; max-width: 350px; left: 50%; transform: translateX(-50%); padding: 15px; }
             h3 { font-size: 1.1em; margin-bottom: 10px; }
             .control { margin-bottom: 10px; }
         }
 
-        /* Ajustes para celulares acostados (Landscape) */
         @media (max-height: 500px) and (orientation: landscape) {
-            #ui {
-                width: 220px; /* Más angosto */
-                top: 10px;
-                left: 10px;
-                padding: 10px 15px;
-                max-height: 90vh; /* Usa el máximo de altura posible */
-            }
+            #ui { width: 280px; top: 10px; left: 10px; padding: 10px 15px; max-height: 90vh; }
             h3 { font-size: 1em; margin-bottom: 5px; }
             .control { margin-bottom: 5px; }
             label { margin-bottom: 2px; font-size: 0.7em; }
             button { padding: 5px; font-size: 0.9em; }
             #data-panel { margin-top: 5px; padding: 5px; }
-            #data-panel div:last-child { font-size: 1.4em !important; } /* Reduce el texto grande de la fuerza */
+            .panel-value { font-size: 1.4em; }
         }
     </style>
 </head>
@@ -61,26 +58,31 @@
         <h3>Práctica 10: Magnetismo</h3>
         
         <div class="control">
-            <label>Corriente (I) <span><span class="val" id="txtI">2.0</span> a</span></label>
-            <input type="range" id="sliderI" min="0.1" max="5" step="0.1" value="2">
+            <label>Corriente (I) <span class="val" id="txtI">0.0 [A]</span></label>
+            <input type="range" id="sliderI" min="0" max="5" step="0.1" value="0">
         </div>
 
         <div class="control">
-            <label>Longitud Cable (L) <span><span class="val" id="txtL">8</span> cm</span></label>
+            <label>Longitud (L) <span class="val" id="txtL">8 [cm]</span></label>
             <input type="range" id="sliderL" min="0.04" max="0.15" step="0.01" value="0.08">
         </div>
 
         <div class="control">
-            <label>Inducción (B) <span><span class="val" id="txtB">0.5</span> t</span></label>
+            <label>Magnitud del campo magnético (B) <span class="val" id="txtB">0.50 [T]</span></label>
             <input type="range" id="sliderB" min="0.1" max="1.0" step="0.05" value="0.5">
         </div>
 
-        <button id="btnPol">INVERTIR POLARIDAD</button>
+        <button id="btnPol">INVERTIR SENTIDO DE LA CORRIENTE</button>
 
         <div id="data-panel">
-            <div style="font-size: 0.7em; color: #a3e635;">LECTURA DE FUERZA (n)</div>
-            <div style="font-size: 1.8em; color: #ffffff;" id="txtF">0.0000</div>
+            <div class="panel-title">Fuerza Magnética</div>
+            <div class="panel-value" id="txtF">0.0000 [N]</div>
         </div>
+    </div>
+
+    <div id="watermark">
+        Derechos Reservados<br>
+        Facultad de Ingeniería, UNAM
     </div>
 
     <script type="importmap">
@@ -97,17 +99,19 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         let scene, camera, renderer, controls, cable, arrowF;
-        let valI = 2.0, valL = 0.08, valB = 0.5, polaridad = 1;
-        let particles = [], fieldLines = [];
+        let valI = 0.0, valL = 0.08, valB = 0.5, polaridad = 1;
+        let particles = [], bArrows = [];
         
         let magnetBaseN, magnetBaseS, magnetPoloN, magnetPoloS; 
         let wireGeoLeft, wireGeoRight, wireLineLeft, wireLineRight;
         let matWirePos, matWireNeg;
 
         let screenCtx, screenTexture;
-        let btnUp, btnDown; 
+        let btnUp, btnDown;
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
+
+        let globalParticleOffset = 0;
 
         init();
         animate();
@@ -147,22 +151,16 @@
             magnetGroup.add(magnetBaseN, magnetBaseS, magnetPoloN, magnetPoloS);
             scene.add(magnetGroup);
 
-            const lineMat = new THREE.LineBasicMaterial({ color: 0x60a5fa, transparent: true, opacity: 0.3 });
-            for(let i = -3.0; i <= 3.0; i += 1.0) { 
-                for(let j = -1.5; j <= 1.5; j += 0.75) {
-                    const points = [];
-                    points.push(new THREE.Vector3(i, 1.2, j));
-                    points.push(new THREE.Vector3(i, -1.2, j));
-                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                    const line = new THREE.Line(geometry, lineMat.clone());
-                    scene.add(line);
-                    fieldLines.push(line);
-                }
+            for(let i=0; i<400; i++) {
+                let arr = new THREE.ArrowHelper(new THREE.Vector3(0,-1,0), new THREE.Vector3(0,0,0), 2.4, 0x60a5fa, 0.4, 0.2);
+                arr.visible = false;
+                scene.add(arr);
+                bArrows.push(arr);
             }
 
-            const cableGeo = new THREE.CylinderGeometry(0.12, 0.12, 1, 32);
+            const cableGeo = new THREE.CylinderGeometry(0.2, 0.2, 1, 32);
             cableGeo.rotateZ(Math.PI / 2);
-            cable = new THREE.Mesh(cableGeo, new THREE.MeshStandardMaterial({color: 0xb87333, metalness: 0.9}));
+            cable = new THREE.Mesh(cableGeo, new THREE.MeshStandardMaterial({color: 0xb87333, metalness: 0.9, transparent: true, opacity: 0.65}));
             scene.add(cable);
 
             const canvas = document.createElement('canvas');
@@ -178,7 +176,7 @@
             
             const psScreen = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1), new THREE.MeshBasicMaterial({map: screenTexture}));
             psScreen.position.set(-0.4, 0.1, 1.01); 
-            
+
             btnUp = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.1), new THREE.MeshStandardMaterial({color: 0x4ade80}));
             btnUp.rotation.x = Math.PI/2; btnUp.position.set(1.2, 0.35, 1.05);
             btnUp.userData = { isButton: true, action: 'up' }; 
@@ -202,16 +200,24 @@
 
             const pGeo = new THREE.ConeGeometry(0.05, 0.15, 8); pGeo.rotateZ(-Math.PI/2);
             const pMat = new THREE.MeshBasicMaterial({color: 0xfacc15});
-            for(let i = 0; i < 20; i++) {
+            for(let i = 0; i < 30; i++) {
                 let p = new THREE.Mesh(pGeo, pMat); p.visible = false;
                 scene.add(p);
-                particles.push({ mesh: p, offset: Math.random() });
+                particles.push({ mesh: p, offset: 0 });
             }
 
-            arrowF = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), 1, 0x4ade80, 0.6, 0.25);
+            arrowF = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), 1, 0x4ade80, 0.6, 0.25);
             scene.add(arrowF);
 
+            window.addEventListener('resize', onWindowResize, false);
+
             setupEvents();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
         function drawScreen() {
@@ -222,13 +228,13 @@
             screenCtx.lineWidth = 10;
             screenCtx.strokeRect(5, 5, 502, 246);
 
-            screenCtx.fillStyle = polaridad > 0 ? '#4ade80' : '#ef4444'; 
+            screenCtx.fillStyle = '#4ade80'; 
             screenCtx.font = 'bold 100px Courier New';
             screenCtx.textAlign = 'center';
             screenCtx.textBaseline = 'middle';
             
-            const sign = polaridad > 0 ? '+' : '-';
-            screenCtx.fillText(`${sign}${valI.toFixed(1)} A`, 256, 128);
+            const displayI = Math.abs(valI);
+            screenCtx.fillText(`${displayI.toFixed(1)} [A]`, 256, 128);
             
             screenTexture.needsUpdate = true; 
         }
@@ -239,39 +245,16 @@
             const sB = document.getElementById('sliderB');
             const bP = document.getElementById('btnPol');
 
-            window.addEventListener('pointerdown', (event) => {
-                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-                raycaster.setFromCamera(mouse, camera);
-
-                const intersects = raycaster.intersectObjects([btnUp, btnDown]);
-
-                if (intersects.length > 0) {
-                    const action = intersects[0].object.userData.action;
-                    if (action === 'up' && valI < 5.0) {
-                        valI = Math.min(valI + 0.1, 5.0);
-                    } else if (action === 'down' && valI > 0.1) {
-                        valI = Math.max(valI - 0.1, 0.1);
-                    }
-                    
-                    sI.value = valI;
-                    updateData();
-                }
-            });
-
             const updateData = () => {
                 valI = parseFloat(sI.value);
                 valL = parseFloat(sL.value);
                 valB = parseFloat(sB.value);
                 
-                document.getElementById('txtI').innerText = valI.toFixed(1);
-                document.getElementById('txtL').innerText = (valL*100).toFixed(0);
-                document.getElementById('txtB').innerText = valB.toFixed(2);
-                document.getElementById('txtF').innerText = (valI * valL * valB).toFixed(4);
+                document.getElementById('txtI').innerText = `${valI.toFixed(1)} [A]`;
+                document.getElementById('txtL').innerText = `${(valL*100).toFixed(0)} [cm]`;
+                document.getElementById('txtB').innerText = `${valB.toFixed(2)} [T]`;
+                document.getElementById('txtF').innerText = `${(valI * valL * valB).toFixed(4)} [N]`;
                 
-                fieldLines.forEach(l => { l.material.opacity = valB * 0.6; });
-
                 const currentL = valL * 38;
                 cable.scale.x = currentL; 
 
@@ -283,6 +266,30 @@
                 magnetPoloS.geometry = new THREE.BoxGeometry(currentL, 0.8, 4.5);
                 if (geoBase) geoBase.dispose();
                 if (geoPolo) geoPolo.dispose();
+
+                const valB_norm = (valB - 0.1) / 0.9;
+                const numX = Math.round(1.5 + (valL * 100) / 6) + Math.floor(valB_norm * 4);
+                const numZ = 2 + Math.floor(valB_norm * 3);
+                let arrowIdx = 0;
+
+                const spanX = currentL / numX;
+                const spanZ = 2.8 / numZ;
+
+                for(let i=0; i<numX; i++) {
+                    for(let j=0; j<numZ; j++) {
+                        if (arrowIdx < bArrows.length) {
+                            let posX = -currentL/2 + spanX/2 + i * spanX;
+                            let posZ = -1.2 + spanZ/2 + j * spanZ;
+                            bArrows[arrowIdx].position.set(posX, 1.2, posZ);
+                            bArrows[arrowIdx].visible = true;
+                            arrowIdx++;
+                        }
+                    }
+                }
+
+                for(let i=arrowIdx; i<bArrows.length; i++) {
+                    bArrows[i].visible = false;
+                }
 
                 const endX = currentL / 2;
                 const ptsL = [ new THREE.Vector3(-endX, 0, 0), new THREE.Vector3(-endX, -2.5, 0), new THREE.Vector3(-1, -3.9, 4.05) ];
@@ -306,6 +313,26 @@
             sL.addEventListener('input', updateData);
             sB.addEventListener('input', updateData);
             bP.addEventListener('click', () => { polaridad *= -1; updateData(); });
+
+            window.addEventListener('pointerdown', (event) => {
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+
+                const intersects = raycaster.intersectObjects([btnUp, btnDown]);
+
+                if (intersects.length > 0) {
+                    const action = intersects[0].object.userData.action;
+                    if (action === 'up' && valI < 5.0) {
+                        valI = Math.min(valI + 0.1, 5.0);
+                    } else if (action === 'down' && valI > 0.0) {
+                        valI = Math.max(valI - 0.1, 0.0);
+                    }
+                    sI.value = valI;
+                    updateData();
+                }
+            });
             
             updateData();
         }
@@ -315,21 +342,36 @@
             controls.update();
             
             const currentL = valL * 38;
-            const numActive = Math.floor(valI * 4);
             const speed = valI * 0.005 * polaridad;
+            
+            globalParticleOffset += speed;
+            if (globalParticleOffset > 1) globalParticleOffset -= 1;
+            if (globalParticleOffset < 0) globalParticleOffset += 1;
+
+            const maxParticles = Math.max(8, Math.floor((valL / 0.15) * 30));
+            const spacing = 1.0 / maxParticles;
 
             particles.forEach((p, index) => {
-                if (index < numActive) {
+                if (valI > 0 && index < maxParticles) {
                     p.mesh.visible = true;
-                    p.offset += speed;
-                    if (p.offset > 1) p.offset = 0; if (p.offset < 0) p.offset = 1;
-                    p.mesh.position.set((p.offset - 0.5) * currentL, 0.25, 0);
+                    let pOffset = (globalParticleOffset + index * spacing) % 1.0;
+                    p.mesh.position.set((pOffset - 0.5) * currentL, 0, 0);
                     p.mesh.rotation.y = polaridad > 0 ? 0 : Math.PI;
-                } else { p.mesh.visible = false; }
+                } else {
+                    p.mesh.visible = false;
+                }
             });
 
-            arrowF.setDirection(new THREE.Vector3(0, polaridad, 0));
-            arrowF.setLength(valI * valL * valB * 25 + 1);
+            const maxForce = 5.0 * 0.15 * 1.0; 
+            const dirZ = polaridad > 0 ? -1 : 1;
+            arrowF.setDirection(new THREE.Vector3(0, 0, dirZ));
+            
+            if (valI * valL * valB === 0) {
+                arrowF.setLength(0.001);
+            } else {
+                const normalizedMagnitudeSum = (valI / 5.0) + ((valL - 0.04) / 0.11) + ((valB - 0.1) / 0.9);
+                arrowF.setLength(4.0 + (3.5 / 3.0) * normalizedMagnitudeSum);
+            }
 
             renderer.render(scene, camera);
         }
